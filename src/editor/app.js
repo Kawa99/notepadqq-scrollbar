@@ -726,6 +726,7 @@ $(document).ready(function () {
         indentUnit: 4,
         tabSize: 4,
         matchBrackets: true,
+        scrollbarStyle: "simple",
         extraKeys: {"Ctrl-Space": "autocomplete"},
         theme: _defaultTheme
     });
