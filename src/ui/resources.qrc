@@ -4,6 +4,8 @@
 
 		<file alias="scalable/document-close.svg">icons/notepadqq/scalable/document-close.svg</file>
 		<file alias="scalable/document-close-all.svg">icons/notepadqq/scalable/document-close-all.svg</file>
+		<file alias="scalable/tab-close-dark.svg">icons/notepadqq/scalable/tab-close-dark.svg</file>
+		<file alias="scalable/tab-close-light.svg">icons/notepadqq/scalable/tab-close-light.svg</file>
 		<file alias="scalable/document-new.svg">icons/notepadqq/scalable/document-new.svg</file>
 		<file alias="scalable/document-open.svg">icons/notepadqq/scalable/document-open.svg</file>
 		<file alias="scalable/document-print.svg">icons/notepadqq/scalable/document-print.svg</file>

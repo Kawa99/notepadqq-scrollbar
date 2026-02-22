@@ -160,7 +160,7 @@ QTabBar::tab {
     border-top-right-radius: 10px;
     min-width: 120px;
     min-height: 28px;
-    padding: 6px 12px;
+    padding: 6px 20px 6px 12px;
     margin: 4px 2px 0 2px;
 }
 
@@ -176,8 +176,12 @@ QTabBar::tab:hover:!selected {
 }
 
 QTabBar::close-button {
+    image: url(:/icons/notepadqq/scalable/tab-close-dark.svg);
+    subcontrol-origin: padding;
+    subcontrol-position: right center;
     width: 14px;
     height: 14px;
+    margin-right: 6px;
     border-radius: 7px;
     background: transparent;
 }
