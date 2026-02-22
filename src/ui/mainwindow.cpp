@@ -308,6 +308,7 @@ void MainWindow::loadIcons()
     ui->actionRestore_Default_Zoom->setIcon(IconProvider::fromTheme("zoom-original"));
     ui->actionWord_wrap->setIcon(IconProvider::fromTheme("word-wrap"));
     ui->actionMath_Rendering->setIcon(IconProvider::fromTheme("math-rendering"));
+    ui->actionMarkdown_Preview->setIcon(IconProvider::fromTheme("document-preview"));
     ui->actionFull_Screen->setIcon(IconProvider::fromTheme("view-fullscreen"));
 
     // Settings menu
@@ -819,6 +820,14 @@ void MainWindow::on_actionMath_Rendering_toggled(bool on)
     m_settings.General.setMathRendering(on);
 }
 
+void MainWindow::on_actionMarkdown_Preview_toggled(bool on)
+{
+    m_topEditorContainer->forEachEditor([&](const int /*tabWidgetId*/, const int /*editorId*/, EditorTabWidget */*tabWidget*/, QSharedPointer<Editor> editor) {
+        editor->setMarkdownPreviewEnabled(on);
+        return true;
+    });
+}
+
 void MainWindow::on_actionMove_to_Other_View_triggered()
 {
     EditorTabWidget *curTabWidget = m_topEditorContainer->currentTabWidget();
@@ -1207,6 +1216,14 @@ void MainWindow::on_editorAdded(EditorTabWidget *tabWidget, int tab)
         if (currentEditor() == editor)
             refreshEditorUiInfo(editor);
     });
+    connect(editor.data(), &Editor::messageReceived, this, [=](QString msg, QVariant data) {
+        if (msg == "J_EVT_MARKDOWN_PREVIEW_TOGGLED"
+                && data.canConvert<bool>()
+                && !data.toBool()
+                && ui->actionMarkdown_Preview->isChecked()) {
+            ui->actionMarkdown_Preview->setChecked(false);
+        }
+    });
     connect(editor.data(), &Editor::urlsDropped, this, &MainWindow::on_editorUrlsDropped);
 
     // Initialize editor with UI settings
@@ -1221,6 +1238,7 @@ void MainWindow::on_editorAdded(EditorTabWidget *tabWidget, int tab)
     editor->setLineNumbersVisible(m_settings.Appearance.getShowLineNumbers());
     editor->setSmartIndent(m_settings.General.getSmartIndentation());
     editor->setMathEnabled(ui->actionMath_Rendering->isChecked());
+    editor->setMarkdownPreviewEnabled(ui->actionMarkdown_Preview->isChecked());
 }
 
 void MainWindow::on_cursorActivity(QMap<QString, QVariant> data)

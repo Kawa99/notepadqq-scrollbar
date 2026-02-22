@@ -45,6 +45,11 @@ UiDriver.registerEventHandler("C_CMD_SET_LANGUAGE", function(msg, data, prevRetu
     require(['features/latex/latex'], function(math) {
         math.refresh(editor);
     });
+
+    // If markdown preview is enabled, refresh it after the language changes.
+    require(['features/markdown/preview'], function(markdownPreview) {
+        markdownPreview.refresh(editor);
+    });
 });
 
 UiDriver.registerEventHandler("C_CMD_SET_INDENTATION_MODE", function(msg, data, prevReturn) {
@@ -555,7 +560,17 @@ UiDriver.registerEventHandler("C_CMD_ENABLE_MATH", function(msg, data, prevRetur
             math.disable(editor);
         }
     });
-})
+});
+
+UiDriver.registerEventHandler("C_CMD_ENABLE_MARKDOWN_PREVIEW", function(msg, data, prevReturn) {
+    require(['features/markdown/preview'], function(markdownPreview) {
+        if (data) {
+            markdownPreview.enable(editor);
+        } else {
+            markdownPreview.disable(editor);
+        }
+    });
+});
 
 UiDriver.registerEventHandler("C_FUN_IS_MATH_ENABLED", function(msg, data, prevReturn) {
     if (!require.defined('features/latex/latex')) {

@@ -558,6 +558,11 @@ namespace EditorNS
         asyncSendMessageWithResultP("C_CMD_ENABLE_MATH", enabled);
     }
 
+    void Editor::setMarkdownPreviewEnabled(const bool enabled)
+    {
+        asyncSendMessageWithResultP("C_CMD_ENABLE_MARKDOWN_PREVIEW", enabled);
+    }
+
     QPromise<QPair<int, int>> Editor::cursorPositionP()
     {
         return asyncSendMessageWithResultP("C_FUN_GET_CURSOR")

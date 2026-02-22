@@ -71,3 +71,351 @@ div.CodeMirror span.CodeMirror-matchingbracket {
     color: white;
     background-color: rgba(100, 100, 100, 0.4);
 }
+
+.editor.markdown-preview-enabled > .CodeMirror {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 50%;
+    height: auto;
+}
+
+.markdown-preview-pane {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 50%;
+    box-sizing: border-box;
+    overflow: auto;
+    border-left: 1px solid #2f343e;
+    background: #1f232a;
+    color: #d6d9df;
+    font-family: "Noto Sans", "DejaVu Sans", sans-serif;
+}
+
+.markdown-preview-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(24, 27, 33, 0.95);
+    border-bottom: 1px solid #2f343e;
+    backdrop-filter: blur(2px);
+}
+
+.markdown-preview-title {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #8ea2c7;
+}
+
+.markdown-preview-close {
+    border: none;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    font-size: 20px;
+    line-height: 20px;
+    color: #c8cedb;
+    background: #2e3440;
+    cursor: pointer;
+}
+
+.markdown-preview-close:hover {
+    background: #3a4250;
+    color: #ffffff;
+}
+
+.markdown-preview-content {
+    padding: 16px 20px;
+}
+
+.editor.markdown-preview-enabled > .markdown-preview-pane {
+    display: block;
+}
+
+.markdown-preview-pane h1,
+.markdown-preview-pane h2,
+.markdown-preview-pane h3,
+.markdown-preview-pane h4,
+.markdown-preview-pane h5,
+.markdown-preview-pane h6 {
+    margin: 1.1em 0 0.5em;
+    line-height: 1.25;
+    color: #b9cdfa;
+}
+
+.markdown-preview-pane h1 {
+    color: #ffd06f;
+}
+
+.markdown-preview-pane h2 {
+    color: #9fc5ff;
+}
+
+.markdown-preview-pane h3 {
+    color: #8dd7c8;
+}
+
+.markdown-preview-pane p,
+.markdown-preview-pane ul,
+.markdown-preview-pane ol,
+.markdown-preview-pane blockquote,
+.markdown-preview-pane pre {
+    margin: 0 0 0.8em;
+}
+
+.markdown-preview-pane ul,
+.markdown-preview-pane ol {
+    padding-left: 1.4em;
+}
+
+.markdown-preview-pane li::marker {
+    color: #8ea2c7;
+}
+
+.markdown-preview-pane a {
+    color: #7fb3ff;
+}
+
+.markdown-preview-pane a:hover {
+    color: #a6cbff;
+}
+
+.markdown-preview-pane a.md-wikilink {
+    color: #86d7e0;
+    font-weight: 600;
+    text-decoration-color: rgba(134, 215, 224, 0.65);
+}
+
+.markdown-preview-pane a.md-wikilink:hover {
+    color: #a3edf5;
+    text-decoration-color: rgba(163, 237, 245, 0.85);
+}
+
+.markdown-preview-pane blockquote {
+    margin-left: 0;
+    padding: 0.2em 0 0.2em 0.8em;
+    border-left: 3px solid #5e6a7e;
+    color: #a7b0be;
+    background: rgba(75, 84, 101, 0.18);
+    border-radius: 2px;
+}
+
+.markdown-preview-pane code.md-inline-code {
+    background: #2a303b;
+    color: #ffca85;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-family: "Lucida Console", "Lucida Sans Typewriter", Monaco, "Bitstream Vera Sans Mono", monospace;
+}
+
+.markdown-preview-pane .markdown-task {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+}
+
+.markdown-preview-pane .markdown-task input[type="checkbox"] {
+    accent-color: #7fb3ff;
+}
+
+.markdown-preview-pane hr {
+    border: none;
+    border-top: 1px solid #394253;
+    margin: 1.2em 0;
+}
+
+.markdown-preview-pane .md-footnote-ref {
+    font-size: 0.72em;
+    margin-left: 0.1em;
+}
+
+.markdown-preview-pane .md-footnote-ref a {
+    text-decoration: none;
+    color: #f0a2d5;
+}
+
+.markdown-preview-pane .markdown-footnotes {
+    margin-top: 1.4em;
+    padding-top: 0.2em;
+}
+
+.markdown-preview-pane .markdown-footnotes ol {
+    margin: 0.6em 0 0;
+    padding-left: 1.5em;
+}
+
+.markdown-preview-pane .markdown-footnotes li {
+    margin: 0 0 0.45em;
+    color: #cdd5e2;
+}
+
+.markdown-preview-pane .md-footnote-backref {
+    margin-left: 0.4em;
+    text-decoration: none;
+    color: #89bcff;
+}
+
+.markdown-preview-pane strong {
+    color: #f7f8fb;
+}
+
+.markdown-preview-pane em {
+    color: #bfd1f7;
+}
+
+.markdown-preview-pane .md-strike {
+    color: #9ca5b4;
+    text-decoration: line-through;
+}
+
+.markdown-preview-pane mark {
+    color: #1f232a;
+    background: #ffd06f;
+    padding: 0.04em 0.24em;
+    border-radius: 2px;
+}
+
+.markdown-preview-pane u {
+    text-decoration-color: #9fc5ff;
+    text-underline-offset: 0.16em;
+}
+
+.markdown-preview-pane table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1em;
+}
+
+.markdown-preview-pane th,
+.markdown-preview-pane td {
+    border: 1px solid #394253;
+    padding: 0.5em 0.6em;
+    vertical-align: top;
+}
+
+.markdown-preview-pane th {
+    background: #252c36;
+    color: #d9e6ff;
+    font-weight: 600;
+}
+
+.markdown-preview-pane tbody tr:nth-child(odd) {
+    background: #20262f;
+}
+
+.markdown-preview-pane tbody tr:nth-child(even) {
+    background: #1b2028;
+}
+
+.markdown-preview-pane .md-align-left {
+    text-align: left;
+}
+
+.markdown-preview-pane .md-align-center {
+    text-align: center;
+}
+
+.markdown-preview-pane .md-align-right {
+    text-align: right;
+}
+
+.markdown-preview-pane .markdown-code-wrapper {
+    margin: 0 0 0.9em;
+}
+
+.markdown-preview-pane .markdown-code-meta {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.2em;
+}
+
+.markdown-preview-pane .markdown-code-language {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #9ab0d6;
+    background: #28303b;
+    border: 1px solid #394253;
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
+.markdown-preview-pane pre.md-code {
+    margin: 0;
+    padding: 0.85em 0.95em;
+    border-radius: 4px;
+    background: #171b21;
+    border: 1px solid #2f343e;
+    overflow: auto;
+}
+
+.markdown-preview-pane pre.md-code code {
+    display: block;
+    white-space: pre;
+    background: transparent;
+    padding: 0;
+    color: #d6d9df;
+    font-family: "Lucida Console", "Lucida Sans Typewriter", Monaco, "Bitstream Vera Sans Mono", monospace;
+}
+
+/* Obsidian-like token colors for fenced code blocks */
+.markdown-preview-pane .cm-s-default .cm-comment {
+    color: #7f8b9f;
+}
+
+.markdown-preview-pane .cm-s-default .cm-keyword {
+    color: #a6b8ff;
+}
+
+.markdown-preview-pane .cm-s-default .cm-atom {
+    color: #d7a7ff;
+}
+
+.markdown-preview-pane .cm-s-default .cm-number {
+    color: #f8be7c;
+}
+
+.markdown-preview-pane .cm-s-default .cm-def {
+    color: #8dd7c8;
+}
+
+.markdown-preview-pane .cm-s-default .cm-variable,
+.markdown-preview-pane .cm-s-default .cm-variable-2,
+.markdown-preview-pane .cm-s-default .cm-variable-3,
+.markdown-preview-pane .cm-s-default .cm-property {
+    color: #c7d4ec;
+}
+
+.markdown-preview-pane .cm-s-default .cm-string,
+.markdown-preview-pane .cm-s-default .cm-string-2 {
+    color: #9edb98;
+}
+
+.markdown-preview-pane .cm-s-default .cm-operator {
+    color: #f2a9a9;
+}
+
+.markdown-preview-pane .cm-s-default .cm-builtin {
+    color: #7bc7ff;
+}
+
+.markdown-preview-pane .cm-s-default .cm-tag {
+    color: #8fc9ff;
+}
+
+.markdown-preview-pane .cm-s-default .cm-attribute {
+    color: #ffd48e;
+}
+
+.markdown-preview-pane .cm-s-default .cm-meta {
+    color: #9ea9bc;
+}

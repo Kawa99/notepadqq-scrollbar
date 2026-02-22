@@ -26,3 +26,13 @@
 .editor.print .CodeMirror-guttermarker-subtle {
     visibility: hidden;
 }
+
+.editor.print.markdown-preview-enabled > .CodeMirror {
+    width: 100%;
+    left: 0;
+    right: 0;
+}
+
+.editor.print .markdown-preview-pane {
+    display: none !important;
+}
