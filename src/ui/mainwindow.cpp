@@ -24,19 +24,25 @@
 
 #include <QClipboard>
 #include <QDesktopServices>
+#include <QDialog>
 #include <QFileDialog>
+#include <QHash>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPageSetupDialog>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSet>
 #include <QTemporaryFile>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QUrl>
+#include <QVBoxLayout>
 #include <QtPrintSupport/QPrintDialog>
 #include <QtPrintSupport/QPrintPreviewDialog>
 #include <QtPromise>
@@ -44,6 +50,115 @@
 using namespace QtPromise;
 
 QList<MainWindow*> MainWindow::m_instances = QList<MainWindow*>();
+
+namespace {
+QString cleanUiText(QString text)
+{
+    text.replace("&", "");
+    text.replace("...", "");
+    return text.trimmed();
+}
+
+QString menuPathForAction(const QAction *action)
+{
+    const QMenu *menu = qobject_cast<const QMenu*>(action->parent());
+    if (!menu) {
+        return QString();
+    }
+
+    QStringList parts;
+    const QMenu *current = menu;
+    while (current) {
+        QString title = cleanUiText(current->title());
+        if (!title.isEmpty()) {
+            parts.prepend(title);
+        }
+        current = qobject_cast<const QMenu*>(current->parentWidget());
+    }
+
+    return parts.join(" > ");
+}
+
+QString trimTrailingZeroes(QString text)
+{
+    while (text.endsWith('0')) {
+        text.chop(1);
+    }
+    if (text.endsWith('.')) {
+        text.chop(1);
+    }
+    return text;
+}
+
+QString scaledLengthToken(const QString &number, const QString &unit, qreal scale)
+{
+    bool ok = false;
+    const qreal base = number.toDouble(&ok);
+    if (!ok) {
+        return number + unit;
+    }
+
+    if (unit == "px") {
+        if (qFuzzyIsNull(base)) {
+            return "0px";
+        }
+        const int px = qMax(1, qRound(base * scale));
+        return QString::number(px) + "px";
+    }
+
+    if (qFuzzyIsNull(base)) {
+        return "0pt";
+    }
+    const qreal pt = qMax<qreal>(6.0, base * scale);
+    return trimTrailingZeroes(QString::number(pt, 'f', 2)) + "pt";
+}
+
+QString scaledStyleSheet(const QString &baseStyle, qreal scale)
+{
+    static const QRegularExpression re(QStringLiteral(R"(([-+]?\d*\.?\d+)\s*(px|pt)\b)"));
+
+    QString scaled;
+    scaled.reserve(baseStyle.size() + 256);
+
+    int pos = 0;
+    QRegularExpressionMatchIterator it = re.globalMatch(baseStyle);
+    while (it.hasNext()) {
+        const QRegularExpressionMatch m = it.next();
+        const int start = m.capturedStart();
+        const int end = m.capturedEnd();
+        scaled += baseStyle.midRef(pos, start - pos);
+        scaled += scaledLengthToken(m.captured(1), m.captured(2), scale);
+        pos = end;
+    }
+    scaled += baseStyle.midRef(pos);
+
+    return scaled;
+}
+
+void applyScaledApplicationStyle(qreal scale)
+{
+    const QVariant baseProperty = qApp->property("nqqBaseStyleSheet");
+    if (!baseProperty.isValid()) {
+        return;
+    }
+
+    const QString baseStyle = baseProperty.toString();
+    if (baseStyle.isEmpty()) {
+        return;
+    }
+
+    const QVariant oldScaleProperty = qApp->property("nqqStyleZoomScale");
+    if (oldScaleProperty.isValid()) {
+        const qreal oldScale = oldScaleProperty.toReal();
+        if (qAbs(oldScale - scale) < 0.001) {
+            return;
+        }
+    }
+
+    qApp->setProperty("nqqStyleZoomScale", scale);
+    qApp->setStyleSheet(scaledStyleSheet(baseStyle, scale));
+}
+}
 
 MainWindow::MainWindow(const QString &workingDirectory, const QStringList &arguments, QWidget *parent) :
     QMainWindow(parent),
@@ -204,13 +319,32 @@ void MainWindow::configureUserInterface()
 
     // Create the toolbar
     m_mainToolBar = new QToolBar("Toolbar");
-    m_mainToolBar->setIconSize(QSize(16, 16));
+    m_mainToolBar->setIconSize(QSize(18, 18));
     m_mainToolBar->setObjectName("toolbar");
+    m_mainToolBar->setMovable(false);
+    m_mainToolBar->setFloatable(false);
+    m_mainToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
     addToolBar(m_mainToolBar);
+    m_toolBarBaseIconSize = m_mainToolBar->iconSize().width();
 
     // Wire up toolbar and menubar visibility.
     connect(m_mainToolBar, &QToolBar::visibilityChanged, ui->actionShow_Toolbar, &QAction::setChecked);
     ui->actionShow_Toolbar->setChecked(m_mainToolBar->isVisible());
+
+    QFont menuBarFont = ui->menuBar->font();
+    if (menuBarFont.pointSize() > 0) {
+        m_menuBarBasePointSize = menuBarFont.pointSize();
+    }
+    QFont appFont = qApp->font();
+    if (appFont.pointSize() > 0) {
+        m_baseAppFontPointSize = appFont.pointSize();
+    }
+    menuBarFont.setBold(true);
+    ui->menuBar->setFont(menuBarFont);
+#ifndef Q_OS_MACX
+    // Keep rendering under Qt so font scaling works consistently on Linux.
+    ui->menuBar->setNativeMenuBar(false);
+#endif
     ui->menuBar->setVisible(m_settings.MainWindow.getMenuBarVisible());
     ui->actionShow_Menubar->setChecked(m_settings.MainWindow.getMenuBarVisible());
 
@@ -248,8 +382,49 @@ void MainWindow::configureUserInterface()
     for (int i = 0; i < m_topEditorContainer->count(); i++) {
         m_topEditorContainer->tabWidget(i)->setZoomFactor(zoom);
     }
+    applyChromeZoom(zoom);
 
     restoreWindowSettings();
+}
+
+void MainWindow::applyChromeZoom(qreal zoomFactor)
+{
+    const qreal scale = qBound<qreal>(0.75, zoomFactor, 2.50);
+
+    applyScaledApplicationStyle(scale);
+
+    int appPt = qRound(m_baseAppFontPointSize * scale);
+    appPt = qBound(9, appPt, 30);
+    QFont appFont = qApp->font();
+    appFont.setPointSize(appPt);
+    qApp->setFont(appFont);
+    setFont(appFont);
+
+    int menuPt = qRound(m_menuBarBasePointSize * scale);
+    menuPt = qBound(9, menuPt, 28);
+    QFont menuBarFont = ui->menuBar->font();
+    menuBarFont.setPointSize(menuPt);
+    menuBarFont.setBold(true);
+    ui->menuBar->setFont(menuBarFont);
+
+    const QList<QMenu*> menus = ui->menuBar->findChildren<QMenu*>();
+    for (QMenu *menu : menus) {
+        menu->setFont(appFont);
+    }
+    statusBar()->setFont(appFont);
+
+    int iconPx = qRound(m_toolBarBaseIconSize * scale);
+    iconPx = qBound(16, iconPx, 64);
+    m_mainToolBar->setIconSize(QSize(iconPx, iconPx));
+
+    // Make toolbar buttons grow together with icon size.
+    int buttonMin = qBound(iconPx + 6, qRound(iconPx * 1.35), 96);
+    int padding = qBound(3, qRound(iconPx * 0.16), 10);
+    m_mainToolBar->setStyleSheet(QString(
+        "QToolButton { min-width:%1px; min-height:%2px; padding:%3px; }")
+        .arg(buttonMin)
+        .arg(buttonMin)
+        .arg(padding));
 }
 
 void MainWindow::restoreWindowSettings()
@@ -296,6 +471,7 @@ void MainWindow::loadIcons()
 
     // Search menu
     ui->actionSearch->setIcon(IconProvider::fromTheme("edit-find"));
+    ui->actionCommand_Palette->setIcon(IconProvider::fromTheme("system-search"));
     ui->actionFind_Next->setIcon(IconProvider::fromTheme("go-next"));
     ui->actionFind_Previous->setIcon(IconProvider::fromTheme("go-previous"));
     ui->actionReplace->setIcon(IconProvider::fromTheme("edit-find-replace"));
@@ -1513,6 +1689,163 @@ void MainWindow::on_actionSearch_triggered()
     });
 }
 
+void MainWindow::on_actionCommand_Palette_triggered()
+{
+    struct CommandEntry {
+        QAction *action;
+        QString title;
+        QString menuPath;
+        QString shortcut;
+        QString searchBlob;
+    };
+
+    QHash<QAction*, QString> actionToMenuPath;
+    const QList<QMenu*> menus = ui->menuBar->findChildren<QMenu*>();
+    for (QMenu *menu : menus) {
+        const QString path = cleanUiText(menu->title());
+        for (QAction *action : menu->actions()) {
+            if (!action || action->isSeparator() || action->menu()) {
+                continue;
+            }
+            if (!actionToMenuPath.contains(action)) {
+                actionToMenuPath.insert(action, path);
+            }
+        }
+    }
+
+    QList<CommandEntry> entries;
+    QSet<QAction*> seen;
+    const QList<QAction*> actions = getActions();
+    for (QAction *action : actions) {
+        if (!action || seen.contains(action) || action->isSeparator() || action->menu()) {
+            continue;
+        }
+        seen.insert(action);
+
+        if (action == ui->actionCommand_Palette) {
+            continue;
+        }
+
+        QString title = cleanUiText(action->text());
+        if (title.isEmpty()) {
+            continue;
+        }
+
+        QString shortcut = action->shortcut().toString(QKeySequence::NativeText);
+        QString menuPath = actionToMenuPath.value(action);
+        if (menuPath.isEmpty()) {
+            menuPath = menuPathForAction(action);
+        }
+
+        QString searchBlob = (title + " " + menuPath + " " + shortcut).toLower();
+        entries.append(CommandEntry{action, title, menuPath, shortcut, searchBlob});
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const CommandEntry &a, const CommandEntry &b) {
+        return QString::localeAwareCompare(a.title, b.title) < 0;
+    });
+
+    QDialog dialog(this);
+    dialog.setObjectName("nqqCommandPalette");
+    dialog.setWindowTitle(tr("Command Palette"));
+    dialog.setWindowModality(Qt::WindowModal);
+    dialog.resize(760, 480);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setSpacing(10);
+
+    auto *search = new QLineEdit(&dialog);
+    search->setObjectName("nqqCommandPaletteSearch");
+    search->setClearButtonEnabled(true);
+    search->setPlaceholderText(tr("Type a command or shortcut (e.g. Save, Markdown Preview, Ctrl+S)"));
+
+    auto *results = new QListWidget(&dialog);
+    results->setObjectName("nqqCommandPaletteResults");
+    results->setSelectionMode(QAbstractItemView::SingleSelection);
+    results->setUniformItemSizes(false);
+
+    layout->addWidget(search);
+    layout->addWidget(results);
+
+    QAction *selectedAction = nullptr;
+
+    auto updateResults = [&]() {
+        const QString query = search->text().trimmed().toLower();
+        const QStringList terms = query.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+
+        results->clear();
+        for (int i = 0; i < entries.size(); i++) {
+            const CommandEntry &entry = entries[i];
+
+            bool matches = true;
+            for (const QString &term : terms) {
+                if (!entry.searchBlob.contains(term)) {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (!matches) {
+                continue;
+            }
+
+            QString label = entry.title;
+            if (!entry.shortcut.isEmpty()) {
+                label += "    " + entry.shortcut;
+            }
+            if (!entry.menuPath.isEmpty()) {
+                label += "\n" + entry.menuPath;
+            }
+
+            auto *item = new QListWidgetItem(label, results);
+            item->setData(Qt::UserRole, i);
+            item->setToolTip(entry.menuPath);
+            if (!entry.action->isEnabled()) {
+                item->setFlags(item->flags() & ~Qt::ItemIsEnabled);
+            }
+        }
+
+        if (results->count() > 0) {
+            results->setCurrentRow(0);
+        }
+    };
+
+    auto triggerCurrentSelection = [&]() {
+        QListWidgetItem *item = results->currentItem();
+        if (!item) {
+            return;
+        }
+
+        int index = item->data(Qt::UserRole).toInt();
+        if (index < 0 || index >= entries.size()) {
+            return;
+        }
+
+        selectedAction = entries[index].action;
+        dialog.accept();
+    };
+
+    connect(search, &QLineEdit::textChanged, &dialog, [&](const QString &) {
+        updateResults();
+    });
+    connect(search, &QLineEdit::returnPressed, &dialog, triggerCurrentSelection);
+    connect(results, &QListWidget::itemActivated, &dialog, [&](QListWidgetItem *) {
+        triggerCurrentSelection();
+    });
+    connect(results, &QListWidget::itemDoubleClicked, &dialog, [&](QListWidgetItem *) {
+        triggerCurrentSelection();
+    });
+
+    updateResults();
+    search->setFocus();
+    search->selectAll();
+
+    if (dialog.exec() == QDialog::Accepted && selectedAction && selectedAction->isEnabled()) {
+        selectedAction->trigger();
+    }
+}
+
 void MainWindow::on_actionCurrent_Full_File_Path_to_Clipboard_triggered()
 {
     auto editor = currentEditor();
@@ -1663,23 +1996,32 @@ void MainWindow::on_actionPlain_text_triggered()
 void MainWindow::on_actionRestore_Default_Zoom_triggered()
 {
     const qreal newZoom = m_settings.General.resetZoom();
-    m_topEditorContainer->currentTabWidget()->setZoomFactor(newZoom);
+    for (int i = 0; i < m_topEditorContainer->count(); i++) {
+        m_topEditorContainer->tabWidget(i)->setZoomFactor(newZoom);
+    }
+    applyChromeZoom(newZoom);
 }
 
 void MainWindow::on_actionZoom_In_triggered()
 {
     qreal curZoom = currentEditor()->zoomFactor();
     qreal newZoom = curZoom + 0.25;
-    m_topEditorContainer->currentTabWidget()->setZoomFactor(newZoom);
+    for (int i = 0; i < m_topEditorContainer->count(); i++) {
+        m_topEditorContainer->tabWidget(i)->setZoomFactor(newZoom);
+    }
     m_settings.General.setZoom(newZoom);
+    applyChromeZoom(newZoom);
 }
 
 void MainWindow::on_actionZoom_Out_triggered()
 {
     qreal curZoom = currentEditor()->zoomFactor();
     qreal newZoom = curZoom - 0.25;
-    m_topEditorContainer->currentTabWidget()->setZoomFactor(newZoom);
+    for (int i = 0; i < m_topEditorContainer->count(); i++) {
+        m_topEditorContainer->tabWidget(i)->setZoomFactor(newZoom);
+    }
     m_settings.General.setZoom(newZoom);
+    applyChromeZoom(newZoom);
 }
 
 void MainWindow::on_editorMouseWheel(EditorTabWidget *tabWidget, int tab, QWheelEvent *ev)
@@ -1691,8 +2033,11 @@ void MainWindow::on_editorMouseWheel(EditorTabWidget *tabWidget, int tab, QWheel
 
         // Increment/Decrement zoom factor by 0.1 at each step.
         qreal newZoom = curZoom + diff;
-        tabWidget->setZoomFactor(newZoom);
+        for (int i = 0; i < m_topEditorContainer->count(); i++) {
+            m_topEditorContainer->tabWidget(i)->setZoomFactor(newZoom);
+        }
         m_settings.General.setZoom(newZoom);
+        applyChromeZoom(newZoom);
     }
 }
 

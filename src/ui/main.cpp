@@ -12,8 +12,10 @@
 
 #include <QDateTime>
 #include <QFileInfo>
+#include <QFile>
 #include <QLocale>
 #include <QObject>
+#include <QPalette>
 #include <QTranslator>
 #include <QtGlobal>
 
@@ -25,6 +27,16 @@
 
 void forceDefaultSettings();
 void loadExtensions();
+void applyModernGnomeStyle();
+
+static QString modernStylePath()
+{
+    const QColor windowColor = qApp->palette().color(QPalette::Window);
+    if (windowColor.lightness() < 128) {
+        return ":/styles/modern-dark.qss";
+    }
+    return ":/styles/gnome-modern.qss";
+}
 
 int main(int argc, char *argv[])
 {
@@ -45,6 +57,7 @@ int main(int argc, char *argv[])
     SingleApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
     SingleApplication a(argc, argv);
+    applyModernGnomeStyle();
 
     QCoreApplication::setOrganizationName("Notepadqq");
     QCoreApplication::setApplicationName("Notepadqq");
@@ -207,4 +220,20 @@ void forceDefaultSettings()
     }
 
 
+}
+
+void applyModernGnomeStyle()
+{
+    qApp->setStyle("Fusion");
+
+    QFile styleFile(modernStylePath());
+    if (!styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Unable to load modern style sheet from" << styleFile.fileName();
+        return;
+    }
+
+    const QString baseStyleSheet = QString::fromUtf8(styleFile.readAll());
+    qApp->setProperty("nqqBaseStyleSheet", baseStyleSheet);
+    qApp->setProperty("nqqStyleZoomScale", 1.0);
+    qApp->setStyleSheet(baseStyleSheet);
 }

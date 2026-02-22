@@ -27,8 +27,9 @@ EditorTabWidget::EditorTabWidget(QWidget *parent) :
     this->tabBar()->setExpanding(true);
     this->setUsesScrollButtons(true);
 #else
-    QString style = QString("QTabBar::tab{min-width:100px; height:24px;}");
-    setStyleSheet(style);
+    this->tabBar()->setExpanding(false);
+    this->setUsesScrollButtons(true);
+    this->tabBar()->setElideMode(Qt::ElideRight);
 #endif
 
 }

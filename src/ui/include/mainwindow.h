@@ -116,6 +116,7 @@ private slots:
     void on_actionRedo_triggered();
     void on_actionExit_triggered();
     void on_actionSearch_triggered();
+    void on_actionCommand_Palette_triggered();
     void setCurrentEditorLanguage(QString language);
     void on_actionCurrent_Full_File_Path_to_Clipboard_triggered();
     void on_actionCurrent_Filename_to_Clipboard_triggered();
@@ -296,6 +297,7 @@ private:
     void                fixKeyboardShortcuts();
     void                instantiateFrmSearchReplace();
     QUrl                stringToUrl(QString fileName, QString workingDirectory = QString());
+    void                applyChromeZoom(qreal zoomFactor);
 
     /**
      * @brief Initialize UI from settings
@@ -310,6 +312,9 @@ private:
      *               On a `true` return, default symbol saving behavior is modified.
      */
     bool updateSymbols(bool on);
+    int m_baseAppFontPointSize = 10;
+    int m_menuBarBasePointSize = 10;
+    int m_toolBarBaseIconSize = 18;
 };
 
 #endif // MAINWINDOW_H

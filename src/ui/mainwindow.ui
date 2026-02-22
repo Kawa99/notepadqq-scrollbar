@@ -159,6 +159,7 @@
      <string>&amp;Search</string>
     </property>
     <addaction name="actionSearch"/>
+    <addaction name="actionCommand_Palette"/>
     <addaction name="actionFind_in_Files"/>
     <addaction name="actionFind_Next"/>
     <addaction name="actionFind_Previous"/>
@@ -804,6 +805,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+F</string>
+   </property>
+  </action>
+  <action name="actionCommand_Palette">
+   <property name="text">
+    <string>Command &amp;Palette...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+P</string>
    </property>
   </action>
   <action name="actionFind_Next">

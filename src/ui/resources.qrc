@@ -43,10 +43,14 @@
 		<file alias="scalable/edit-delete.svg">icons/notepadqq/scalable/edit-delete.svg</file>
 		<file alias="scalable/edit-select-all.svg">icons/notepadqq/scalable/edit-select-all.svg</file>
 		<file alias="scalable/go-jump.svg">icons/notepadqq/scalable/go-jump.svg</file>
-		<file alias="scalable/help-about.svg">icons/notepadqq/scalable/help-about.svg</file>
-		<file alias="scalable/system-run.svg">icons/notepadqq/scalable/system-run.svg</file>
-		<file alias="scalable/view-fullscreen.svg">icons/notepadqq/scalable/view-fullscreen.svg</file>
-		<file alias="scalable/view-refresh.svg">icons/notepadqq/scalable/view-refresh.svg</file>
+			<file alias="scalable/help-about.svg">icons/notepadqq/scalable/help-about.svg</file>
+			<file alias="scalable/system-run.svg">icons/notepadqq/scalable/system-run.svg</file>
+			<file alias="scalable/view-fullscreen.svg">icons/notepadqq/scalable/view-fullscreen.svg</file>
+			<file alias="scalable/view-refresh.svg">icons/notepadqq/scalable/view-refresh.svg</file>
+    </qresource>
+    <qresource prefix="/styles">
+        <file alias="gnome-modern.qss">styles/gnome-modern.qss</file>
+        <file alias="modern-dark.qss">styles/modern-dark.qss</file>
     </qresource>
     <qresource prefix="/translations">
         <file alias="notepadqq_de.qm">../translations/notepadqq_de.qm</file>
