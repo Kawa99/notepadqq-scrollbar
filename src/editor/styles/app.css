@@ -41,6 +41,11 @@ body {
     font-family: "Lucida Console", "Lucida Sans Typewriter", Monaco, "Bitstream Vera Sans Mono", monospace;
 }
 
+.editor > .CodeMirror .CodeMirror-rtl pre.CodeMirror-line,
+.editor > .CodeMirror .CodeMirror-rtl pre.CodeMirror-line-like {
+    text-align: right;
+}
+
 .CodeMirror-scroll {
     cursor: text
 }

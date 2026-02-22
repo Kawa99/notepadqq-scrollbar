@@ -1,9 +1,53 @@
 var editor;
 var changeGeneration;
 var forceDirty = false;
+var bidiFeature = null;
+
+function applyBidiDirectionFromCursor() {
+    if (!bidiFeature || !editor) {
+        return;
+    }
+
+    bidiFeature.refreshFromCursor(editor);
+}
+
+function applyBidiDirectionFromLine(line) {
+    if (!bidiFeature || !editor) {
+        return;
+    }
+
+    if (typeof line !== "number") {
+        applyBidiDirectionFromCursor();
+        return;
+    }
+
+    bidiFeature.refreshFromLine(editor, line);
+}
+
+function logicalLineBoundary(cm, line, atEnd) {
+    var lineText = cm.getLine(line) || "";
+    return CodeMirror.Pos(line, atEnd ? lineText.length : 0);
+}
+
+if (!CodeMirror.commands.goLineStartLogical) {
+    CodeMirror.commands.goLineStartLogical = function(cm) {
+        return cm.extendSelectionsBy(function(range) {
+            return logicalLineBoundary(cm, range.head.line, false);
+        }, {origin: "+move", bias: 1});
+    };
+}
+
+if (!CodeMirror.commands.goLineEndLogical) {
+    CodeMirror.commands.goLineEndLogical = function(cm) {
+        return cm.extendSelectionsBy(function(range) {
+            return logicalLineBoundary(cm, range.head.line, true);
+        }, {origin: "+move", bias: -1});
+    };
+}
 
 UiDriver.registerEventHandler("C_CMD_SET_VALUE", function(msg, data, prevReturn) {
     editor.setValue(data);
+    applyBidiDirectionFromCursor();
 });
 
 UiDriver.registerEventHandler("C_FUN_GET_VALUE", function(msg, data, prevReturn) {
@@ -130,6 +174,8 @@ UiDriver.registerEventHandler("C_CMD_SET_SELECTION", function(msg, data, prevRet
           ch: data[3]
         }
     );
+
+    applyBidiDirectionFromLine(data[2]);
 });
 
 UiDriver.registerEventHandler("C_FUN_GET_TEXT_LENGTH", function(msg, data, prevReturn) {
@@ -149,6 +195,7 @@ UiDriver.registerEventHandler("C_CMD_SET_CURSOR", function(msg, data, prevReturn
     var line = data[0];
     var ch = data[1];
     editor.setCursor(line, ch);
+    applyBidiDirectionFromLine(line);
 });
 
 UiDriver.registerEventHandler("C_FUN_GET_SCROLL_POS", function(msg, data, prevReturn) {
@@ -709,6 +756,7 @@ function onCursorActivity(editor) {
     require(['libs/throttle-debounce/index'], function(thdb) {
         if (!onCursorActivity._throttled) {
             onCursorActivity._throttled = thdb.throttle(50, () => {
+                applyBidiDirectionFromCursor();
                 UiDriver.sendMessage("J_EVT_CURSOR_ACTIVITY", getDocumentInfo());
             });
         }
@@ -717,6 +765,8 @@ function onCursorActivity(editor) {
 }
 
 function onChange(editor, changeObj) {
+    applyBidiDirectionFromLine(changeObj && changeObj.from ? changeObj.from.line : undefined);
+
     require(['libs/throttle-debounce/index'], function(thdb) {
         if (!onChange._throttled) {
             onChange._throttled = thdb.throttle(50, () => {
@@ -743,6 +793,8 @@ $(document).ready(function () {
         matchBrackets: true,
         scrollbarStyle: "simple",
         extraKeys: {"Ctrl-Space": "autocomplete"},
+        direction: "ltr",
+        rtlMoveVisually: true,
         theme: _defaultTheme
     });
 
@@ -764,7 +816,16 @@ $(document).ready(function () {
         },
         "Shift-Tab": function (cm) {
             cm.indentSelection("subtract");
-        }
+        },
+        "Home": "goLineStartLogical",
+        "End": "goLineEndLogical",
+        "Shift-Home": "goLineStartLogical",
+        "Shift-End": "goLineEndLogical"
+    });
+
+    require(['features/bidi/bidi'], function(bidi) {
+        bidiFeature = bidi;
+        bidiFeature.enable(editor);
     });
 
     changeGeneration = editor.changeGeneration(true);
