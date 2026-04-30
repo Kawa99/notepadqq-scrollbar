@@ -12,10 +12,24 @@
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QInputDialog>
+#include <QApplication>
+#include <QPalette>
 #include <QSortFilterProxyModel>
 #include <QToolBar>
 
 int frmPreferences::s_lastSelectedTab = 0;
+
+static Editor::Theme resolvedEditorThemeForSelection(const QString &selection)
+{
+    if (selection == "default" || selection.isEmpty()) {
+        const QString stylePath = qApp->property("nqqStylePath").toString();
+        const bool dark = !stylePath.isEmpty()
+                ? stylePath.contains("modern-dark.qss")
+                : qApp->palette().color(QPalette::Window).lightness() < 128;
+        return Editor::themeFromName(dark ? "base16-dark" : "default");
+    }
+    return Editor::themeFromName(selection);
+}
 
 frmPreferences::frmPreferences(TopEditorContainer *topEditorContainer, QWidget *parent) :
     QDialog(parent),
@@ -414,7 +428,7 @@ bool frmPreferences::applySettings()
     m_settings.Extensions.setRuntimeNodeJS(ui->txtNodejs->text());
     m_settings.Extensions.setRuntimeNpm(ui->txtNpm->text());
 
-    const Editor::Theme& newTheme = Editor::themeFromName(ui->cmbColorScheme->currentData().toString());
+    const Editor::Theme newTheme = resolvedEditorThemeForSelection(ui->cmbColorScheme->currentData().toString());
     const QString fontFamily = ui->cmbFontFamilies->isEnabled() ? ui->cmbFontFamilies->currentFont().family() : "";
     const int fontSize = ui->spnFontSize->isEnabled() ? ui->spnFontSize->value() : 0;
     const double lineHeight = ui->spnLineHeight->isEnabled() ? ui->spnLineHeight->value() : 0;
@@ -504,7 +518,7 @@ void frmPreferences::on_chkLanguages_IndentWithSpaces_toggled(bool checked)
 
 void frmPreferences::on_cmbColorScheme_currentIndexChanged(int /*index*/)
 {
-    m_previewEditor->setTheme(Editor::themeFromName(ui->cmbColorScheme->currentData().toString()));
+    m_previewEditor->setTheme(resolvedEditorThemeForSelection(ui->cmbColorScheme->currentData().toString()));
 }
 
 void frmPreferences::on_localizationComboBox_activated(int /*index*/)

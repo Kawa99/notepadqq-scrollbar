@@ -1,0 +1,336 @@
+## 1. Basic Thread — Two Ways to Create One
+
+**Way 1: Extending Thread**
+
+```java
+// We create a class that "is" a Thread by extending it
+public class MyThread extends Thread {
+
+    @Override
+    public void run() {
+        // This is the code that runs when the thread starts
+        // Think of this as the chef's recipe — what they do when they start working
+        System.out.println("Thread is running: " + Thread.currentThread().getName());
+    }
+
+    public static void main(String[] args) {
+        MyThread t1 = new MyThread(); // Create the thread (hire the chef)
+        t1.start();                   // Start it — DON'T call t1.run() directly!
+                                      // Calling run() directly would NOT create a new thread
+                                      // start() is what actually launches it in parallel
+    }
+}
+```
+
+**Way 2: Implementing Runnable (generally preferred)**
+
+```java
+// Runnable is just a "contract" — it says: "this class MUST have a run() method"
+public class MyRunnable implements Runnable {
+
+    @Override
+    public void run() {
+        // Same idea — this is what the thread will do when started
+        System.out.println("Runnable thread running: " + Thread.currentThread().getName());
+    }
+
+    public static void main(String[] args) {
+        MyRunnable task = new MyRunnable();   // Create the task (the recipe)
+        Thread t1 = new Thread(task);         // Wrap it in a Thread (assign it to a chef)
+        t1.start();                           // Start the thread
+    }
+}
+```
+
+---
+
+## 2. Two Threads Running at the Same Time
+
+This mirrors the weather/power file example from your lecture.
+
+```java
+public class TwoThreadsExample {
+
+    // Thread 1 — pretends to process weather data
+    static class WeatherThread extends Thread {
+        @Override
+        public void run() {
+            System.out.println("WeatherThread: Starting to read weather file...");
+
+            // Simulate the time it takes to read and process a file
+            // Thread.sleep() pauses this thread for a given number of milliseconds
+            // It's like the chef waiting for water to boil
+            try {
+                Thread.sleep(2000); // Pause for 2 seconds
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            System.out.println("WeatherThread: Done! Average temperature = 11.0°C");
+        }
+    }
+
+    // Thread 2 — pretends to process power usage data
+    static class PowerThread extends Thread {
+        @Override
+        public void run() {
+            System.out.println("PowerThread: Starting to read power file...");
+
+            try {
+                Thread.sleep(3000); // This one takes a bit longer — 3 seconds
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            System.out.println("PowerThread: Done! Average power usage = 456.0 MWh");
+        }
+    }
+
+    public static void main(String[] args) {
+        WeatherThread weatherThread = new WeatherThread();
+        PowerThread powerThread = new PowerThread();
+
+        // Both threads start almost simultaneously
+        // They run in parallel — neither waits for the other
+        weatherThread.start();
+        powerThread.start();
+
+        System.out.println("Main: Both threads have been started!");
+        // Notice: this line prints BEFORE the threads finish
+        // The main program doesn't automatically wait for them
+    }
+}
+
+/* Expected output (order may vary slightly):
+   Main: Both threads have been started!
+   WeatherThread: Starting to read weather file...
+   PowerThread: Starting to read power file...
+   WeatherThread: Done! Average temperature = 11.0°C
+   PowerThread: Done! Average power usage = 456.0 MWh
+*/
+```
+
+---
+
+## 3. The Bug — Reading Results Too Early (Before Using `join()`)
+
+```java
+public class JoinProblemExample {
+
+    static float weatherAvg = 0; // Shared variable — both threads and main can see this
+    static float powerAvg = 0;
+
+    static class WeatherThread extends Thread {
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(2000); // Simulates time to read file
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            weatherAvg = 11.0f; // Thread writes the result into the shared variable
+        }
+    }
+
+    static class PowerThread extends Thread {
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            powerAvg = 456.0f;
+        }
+    }
+
+    public static void main(String[] args) {
+        WeatherThread wt = new WeatherThread();
+        PowerThread pt = new PowerThread();
+
+        wt.start();
+        pt.start();
+
+        // BUG: We're reading the results immediately after starting the threads
+        // But the threads haven't finished yet — they're still "sleeping" (processing)
+        // So weatherAvg and powerAvg are still 0!
+        // This is like asking a chef "is the food ready?" 1 second after they started cooking
+
+        if (weatherAvg > powerAvg) {
+            System.out.println("Weather avg is higher: " + weatherAvg);
+        } else {
+            System.out.println("Power avg is higher: " + powerAvg);
+        }
+        // This will incorrectly print "Power avg is higher: 0.0"
+        // Both values are 0 because the threads haven't finished yet
+    }
+}
+```
+
+---
+
+## 4. The Fix — Using `join()` to Wait for Threads
+
+```java
+public class JoinSolutionExample {
+
+    static float weatherAvg = 0;
+    static float powerAvg = 0;
+
+    static class WeatherThread extends Thread {
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            weatherAvg = 11.0f;
+            System.out.println("WeatherThread finished.");
+        }
+    }
+
+    static class PowerThread extends Thread {
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            powerAvg = 456.0f;
+            System.out.println("PowerThread finished.");
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        WeatherThread wt = new WeatherThread();
+        PowerThread pt = new PowerThread();
+
+        // Start both threads — they now run at the same time
+        wt.start();
+        pt.start();
+
+        // join() makes the main program PAUSE here and wait for each thread to finish
+        // It's like saying: "Don't move on until this chef is done cooking"
+        wt.join(); // Wait for the weather thread to finish
+        pt.join(); // Wait for the power thread to finish
+
+        // Only NOW do we read the results — we're guaranteed both threads are done
+        System.out.println("Both threads done. Comparing results...");
+
+        if (weatherAvg > powerAvg) {
+            System.out.println("Weather avg is higher: " + weatherAvg);
+        } else {
+            System.out.println("Power avg is higher: " + powerAvg);
+        }
+        // This correctly prints "Power avg is higher: 456.0"
+    }
+}
+
+/* Expected output:
+   WeatherThread finished.
+   PowerThread finished.
+   Both threads done. Comparing results...
+   Power avg is higher: 456.0
+*/
+```
+
+---
+
+## 5. Task 4 from Your Lecture — Factorial with Two Threads
+
+The factorial of a number is calculated by multiplying all numbers from 1 up to that number. For example, factorial(5) = 1 × 2 × 3 × 4 × 5 = 120. This splits that work across two threads.
+
+```java
+public class FactorialThreads {
+
+    // Thread 1 handles the first half of the multiplication
+    // e.g. for factorial(6): Thread 1 does 1 × 2 × 3
+    static class FirstHalfThread extends Thread {
+        int start, end;
+        long result = 1; // Stores this thread's partial result
+
+        FirstHalfThread(int start, int end) {
+            this.start = start; // Where to start multiplying
+            this.end = end;     // Where to stop
+        }
+
+        @Override
+        public void run() {
+            for (int i = start; i <= end; i++) {
+                result *= i; // Multiply result by each number in the range
+            }
+            System.out.println("FirstHalfThread: partial result = " + result);
+        }
+    }
+
+    // Thread 2 handles the second half
+    // e.g. for factorial(6): Thread 2 does 4 × 5 × 6
+    static class SecondHalfThread extends Thread {
+        int start, end;
+        long result = 1;
+
+        SecondHalfThread(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        @Override
+        public void run() {
+            for (int i = start; i <= end; i++) {
+                result *= i;
+            }
+            System.out.println("SecondHalfThread: partial result = " + result);
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        int n = 6; // We want to calculate factorial(6) = 720
+        int midpoint = n / 2; // Split the work roughly in half — midpoint = 3
+
+        // Thread 1 multiplies numbers 1 to 3 (gives 6)
+        FirstHalfThread t1 = new FirstHalfThread(1, midpoint);
+
+        // Thread 2 multiplies numbers 4 to 6 (gives 120)
+        SecondHalfThread t2 = new SecondHalfThread(midpoint + 1, n);
+
+        // Start both threads — they work in parallel
+        t1.start();
+        t2.start();
+
+        // Wait for both threads to finish before we combine results
+        t1.join();
+        t2.join();
+
+        // Combine: multiply the two partial results together
+        // 6 × 120 = 720, which is factorial(6) — correct!
+        long finalResult = t1.result * t2.result;
+        System.out.println("Factorial(" + n + ") = " + finalResult);
+    }
+}
+
+/* Expected output:
+   FirstHalfThread: partial result = 6
+   SecondHalfThread: partial result = 120
+   Factorial(6) = 720
+*/
+```
+
+---
+
+### Quick Reference
+
+|What you write|What it does|
+|---|---|
+|`extends Thread`|Makes your class a thread|
+|`implements Runnable`|Another way — puts task code in a class|
+|`run()`|Where the thread's code lives|
+|`start()`|Actually launches the thread in parallel|
+|`join()`|Makes the caller wait for that thread to finish|
+|`Thread.sleep(ms)`|Pauses the current thread for a number of milliseconds|
+
+The most important thing to remember: **always call `start()` not `run()`**, and **always use `join()` before you read results from a thread**.
+
+
+# **Hello, World!**

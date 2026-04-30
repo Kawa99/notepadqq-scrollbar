@@ -16,6 +16,8 @@
 #include <QLocale>
 #include <QObject>
 #include <QPalette>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QTranslator>
 #include <QtGlobal>
 
@@ -28,14 +30,168 @@
 void forceDefaultSettings();
 void loadExtensions();
 void applyModernGnomeStyle();
+void setupSystemThemeAutoSwitch(QApplication *app);
+
+static bool s_isApplyingModernStyle = false;
+static bool s_themeAutoSwitchInitialized = false;
+
+static bool usesDefaultEditorThemeSetting()
+{
+    const QString configured = NqqSettings::getInstance().Appearance.getColorScheme().trimmed().toLower();
+    return configured.isEmpty() || configured == "default";
+}
+
+static QString gsettingsGet(const QString &schema, const QString &key)
+{
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACX)
+    QProcess process;
+    process.start("gsettings", QStringList() << "get" << schema << key);
+    if (!process.waitForFinished(1000)) {
+        return QString();
+    }
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        return QString();
+    }
+
+    QString value = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+    value.remove('\'');
+    return value.toLower();
+#else
+    Q_UNUSED(schema);
+    Q_UNUSED(key);
+    return QString();
+#endif
+}
+
+static bool systemPrefersDarkTheme(bool *known = nullptr)
+{
+    if (known) {
+        *known = false;
+    }
+
+    const QString colorScheme = gsettingsGet("org.gnome.desktop.interface", "color-scheme");
+    if (colorScheme == "prefer-dark") {
+        if (known) {
+            *known = true;
+        }
+        return true;
+    }
+    if (colorScheme == "prefer-light") {
+        if (known) {
+            *known = true;
+        }
+        return false;
+    }
+
+    const QString gtkTheme = gsettingsGet("org.gnome.desktop.interface", "gtk-theme");
+    if (!gtkTheme.isEmpty()) {
+        if (known) {
+            *known = true;
+        }
+        return gtkTheme.contains("dark", Qt::CaseInsensitive);
+    }
+
+    return false;
+}
 
 static QString modernStylePath()
 {
+    bool known = false;
+    const bool dark = systemPrefersDarkTheme(&known);
+    if (known) {
+        return dark ? ":/styles/modern-dark.qss" : ":/styles/gnome-modern.qss";
+    }
+
     const QColor windowColor = qApp->palette().color(QPalette::Window);
     if (windowColor.lightness() < 128) {
         return ":/styles/modern-dark.qss";
     }
     return ":/styles/gnome-modern.qss";
+}
+
+static Editor::Theme autoEditorThemeForCurrentSystem()
+{
+    bool known = false;
+    bool dark = systemPrefersDarkTheme(&known);
+    if (!known) {
+        dark = qApp->palette().color(QPalette::Window).lightness() < 128;
+    }
+
+    return Editor::themeFromName(dark ? "base16-dark" : "default");
+}
+
+static void applyAutoEditorThemeIfNeeded()
+{
+    if (!usesDefaultEditorThemeSetting()) {
+        return;
+    }
+
+    const Editor::Theme theme = autoEditorThemeForCurrentSystem();
+    for (MainWindow *window : MainWindow::instances()) {
+        if (!window) {
+            continue;
+        }
+
+        window->topEditorContainer()->forEachEditor([&](const int, const int, EditorTabWidget *, QSharedPointer<Editor> editor) {
+            editor->setTheme(theme);
+            return true;
+        });
+    }
+}
+
+static QString trimTrailingZeroes(QString text)
+{
+    while (text.endsWith('0')) {
+        text.chop(1);
+    }
+    if (text.endsWith('.')) {
+        text.chop(1);
+    }
+    return text;
+}
+
+static QString scaledLengthToken(const QString &number, const QString &unit, qreal scale)
+{
+    bool ok = false;
+    const qreal base = number.toDouble(&ok);
+    if (!ok) {
+        return number + unit;
+    }
+
+    if (unit == "px") {
+        if (qFuzzyIsNull(base)) {
+            return "0px";
+        }
+        const int px = qMax(1, qRound(base * scale));
+        return QString::number(px) + "px";
+    }
+
+    if (qFuzzyIsNull(base)) {
+        return "0pt";
+    }
+    const qreal pt = qMax<qreal>(6.0, base * scale);
+    return trimTrailingZeroes(QString::number(pt, 'f', 2)) + "pt";
+}
+
+static QString scaledStyleSheet(const QString &baseStyle, qreal scale)
+{
+    static const QRegularExpression re(QStringLiteral(R"(([-+]?\d*\.?\d+)\s*(px|pt)\b)"));
+
+    QString scaled;
+    scaled.reserve(baseStyle.size() + 256);
+
+    int pos = 0;
+    QRegularExpressionMatchIterator it = re.globalMatch(baseStyle);
+    while (it.hasNext()) {
+        const QRegularExpressionMatch m = it.next();
+        const int start = m.capturedStart();
+        const int end = m.capturedEnd();
+        scaled += baseStyle.midRef(pos, start - pos);
+        scaled += scaledLengthToken(m.captured(1), m.captured(2), scale);
+        pos = end;
+    }
+    scaled += baseStyle.midRef(pos);
+    return scaled;
 }
 
 int main(int argc, char *argv[])
@@ -58,6 +214,7 @@ int main(int argc, char *argv[])
 #endif
     SingleApplication a(argc, argv);
     applyModernGnomeStyle();
+    setupSystemThemeAutoSwitch(&a);
 
     QCoreApplication::setOrganizationName("Notepadqq");
     QCoreApplication::setApplicationName("Notepadqq");
@@ -224,16 +381,92 @@ void forceDefaultSettings()
 
 void applyModernGnomeStyle()
 {
+    if (s_isApplyingModernStyle) {
+        return;
+    }
+    s_isApplyingModernStyle = true;
+
     qApp->setStyle("Fusion");
 
-    QFile styleFile(modernStylePath());
+    const QString stylePath = modernStylePath();
+    QFile styleFile(stylePath);
     if (!styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "Unable to load modern style sheet from" << styleFile.fileName();
+        s_isApplyingModernStyle = false;
         return;
     }
 
     const QString baseStyleSheet = QString::fromUtf8(styleFile.readAll());
+    if (qApp->property("nqqBaseStyleSheet").toString() == baseStyleSheet
+            && qApp->property("nqqStylePath").toString() == stylePath) {
+        s_isApplyingModernStyle = false;
+        return;
+    }
+
+    qreal styleScale = qApp->property("nqqStyleZoomScale").toReal();
+    if (styleScale <= 0) {
+        styleScale = 1.0;
+    }
+
+    qApp->setProperty("nqqStylePath", stylePath);
     qApp->setProperty("nqqBaseStyleSheet", baseStyleSheet);
-    qApp->setProperty("nqqStyleZoomScale", 1.0);
-    qApp->setStyleSheet(baseStyleSheet);
+    qApp->setProperty("nqqStyleZoomScale", styleScale);
+    qApp->setStyleSheet(scaledStyleSheet(baseStyleSheet, styleScale));
+    applyAutoEditorThemeIfNeeded();
+    s_isApplyingModernStyle = false;
+}
+
+void setupSystemThemeAutoSwitch(QApplication *app)
+{
+    if (s_themeAutoSwitchInitialized) {
+        return;
+    }
+    s_themeAutoSwitchInitialized = true;
+
+    QObject::connect(app, &QGuiApplication::paletteChanged, app, [](const QPalette &) {
+        applyModernGnomeStyle();
+    });
+
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACX)
+    QProcess *themeMonitor = new QProcess(app);
+    themeMonitor->setProgram("gsettings");
+    themeMonitor->setArguments(QStringList() << "monitor" << "org.gnome.desktop.interface");
+
+    QObject::connect(themeMonitor, &QProcess::readyReadStandardOutput, app, [themeMonitor]() {
+        const QByteArray output = themeMonitor->readAllStandardOutput();
+        if (output.contains("color-scheme") || output.contains("gtk-theme")) {
+            applyModernGnomeStyle();
+        }
+    });
+
+    QObject::connect(themeMonitor,
+                     static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
+                     app,
+                     [themeMonitor, app](int, QProcess::ExitStatus) {
+        if (app->closingDown()) {
+            return;
+        }
+        // Retry in case gsettings monitor is temporarily unavailable.
+        QTimer::singleShot(2000, app, [themeMonitor]() {
+            if (themeMonitor->state() == QProcess::NotRunning) {
+                themeMonitor->start();
+            }
+        });
+    });
+
+    QObject::connect(themeMonitor,
+                     static_cast<void(QProcess::*)(QProcess::ProcessError)>(&QProcess::errorOccurred),
+                     app,
+                     [themeMonitor](QProcess::ProcessError) {
+        if (themeMonitor->state() == QProcess::NotRunning) {
+            QTimer::singleShot(2000, themeMonitor, [themeMonitor]() {
+                if (themeMonitor->state() == QProcess::NotRunning) {
+                    themeMonitor->start();
+                }
+            });
+        }
+    });
+
+    themeMonitor->start();
+#endif
 }

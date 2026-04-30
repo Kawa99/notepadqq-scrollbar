@@ -37,6 +37,7 @@ body {
 .editor > .CodeMirror {
     height: 100%;
     /*cursor: text;*/
+    font-size: 18px;
     line-height: 1.3em;
     font-family: "Lucida Console", "Lucida Sans Typewriter", Monaco, "Bitstream Vera Sans Mono", monospace;
 }

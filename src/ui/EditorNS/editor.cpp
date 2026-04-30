@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QEventLoop>
 #include <QMessageBox>
+#include <QPalette>
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QTimer>
@@ -16,16 +17,35 @@
 
 namespace EditorNS
 {
+    static bool appUsesDarkTheme()
+    {
+        const QString stylePath = qApp->property("nqqStylePath").toString();
+        if (!stylePath.isEmpty()) {
+            return stylePath.contains("modern-dark.qss");
+        }
+        return qApp->palette().color(QPalette::Window).lightness() < 128;
+    }
+
+    static QString effectiveEditorThemeName()
+    {
+        QString themeName = NqqSettings::getInstance().Appearance.getColorScheme().trimmed();
+        if (themeName.isEmpty() || themeName == "default") {
+            return appUsesDarkTheme() ? "base16-dark" : "default";
+        }
+        return themeName;
+    }
+
+    static Editor::Theme effectiveEditorTheme()
+    {
+        return Editor::themeFromName(effectiveEditorThemeName());
+    }
 
     QQueue<QSharedPointer<Editor>> Editor::m_editorBuffer = QQueue<QSharedPointer<Editor>>();
 
     Editor::Editor(QWidget *parent) :
         QWidget(parent)
     {
-
-        QString themeName = NqqSettings::getInstance().Appearance.getColorScheme();
-
-        fullConstructor(themeFromName(themeName));
+        fullConstructor(effectiveEditorTheme());
     }
 
     Editor::Editor(const Theme &theme, QWidget *parent) :
@@ -772,7 +792,7 @@ namespace EditorNS
             sendMessage("C_CMD_DISPLAY_NORMAL_STYLE");
             m_webView->setStyleSheet(prevStylesheet);
             m_webView->page()->setBackgroundColor(prevBackgroundColor);
-            setTheme(themeFromName(NqqSettings::getInstance().Appearance.getColorScheme()));
+            setTheme(effectiveEditorTheme());
             this->setLineWrap(NqqSettings::getInstance().General.getWordWrap());
         });
 #endif
@@ -804,7 +824,7 @@ namespace EditorNS
                             asyncSendMessageWithResultP("C_CMD_DISPLAY_NORMAL_STYLE").wait();
                             m_webView->setStyleSheet(prevStylesheet);
                             m_webView->page()->setBackgroundColor(prevBackgroundColor);
-                            setTheme(themeFromName(NqqSettings::getInstance().Appearance.getColorScheme()));
+                            setTheme(effectiveEditorTheme());
                             this->setLineWrap(NqqSettings::getInstance().General.getWordWrap());
                         });
 

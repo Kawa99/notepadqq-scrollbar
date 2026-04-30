@@ -210,6 +210,22 @@ QComboBox:focus {
     border: 1px solid #6aa8ff;
 }
 
+QListView:focus,
+QTreeView:focus,
+QTableView:focus {
+    border: 1px solid #6aa8ff;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    width: 0px;
+}
+
 QListView,
 QTreeView,
 QTableView {
@@ -217,12 +233,6 @@ QTableView {
     border: 1px solid #3e4758;
     border-radius: 10px;
     alternate-background-color: #262d39;
-}
-
-QListView:focus,
-QTreeView:focus,
-QTableView:focus {
-    border: 1px solid #6aa8ff;
 }
 
 QHeaderView::section {
@@ -318,6 +328,11 @@ QRadioButton::indicator:checked {
     background: #4f8de8;
     border: 1px solid #77a6ef;
     border-radius: 5px;
+}
+
+QDockWidget {
+    titlebar-close-icon: url();
+    titlebar-normal-icon: url();
 }
 
 QDockWidget::title {
